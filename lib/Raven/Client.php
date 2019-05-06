@@ -140,7 +140,13 @@ class Raven_Client
      */
     public $transaction;
 
-    public function __construct($options_or_dsn = null, $options = array())
+    private $translateException;
+
+    public function __construct(
+        $options_or_dsn = null,
+        $options = array(),
+        callable $translateException = null
+    )
     {
         if (is_array($options_or_dsn)) {
             $options = array_merge($options_or_dsn, $options);
@@ -236,6 +242,10 @@ class Raven_Client
         if (Raven_Util::get($options, 'install_shutdown_handler', true)) {
             $this->registerShutdownFunction();
         }
+
+        $this->translateException = $translateException ?: function (\Throwable $e) {
+            return $e->getMessage();
+        };
 
         $this->triggerAutoload();
     }
@@ -642,7 +652,9 @@ class Raven_Client
         $exc = $exception;
         do {
             $exc_data = array(
-                'value' => $this->serializer->serialize($exc->getMessage()),
+                'value' => $this->serializer->serialize(
+                    ($this->translateException)($exc)
+                ),
                 'type' => get_class($exc),
             );
 
